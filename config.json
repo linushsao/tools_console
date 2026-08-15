@@ -1,0 +1,58 @@
+{
+    "ignored_items": {
+        "default": [
+            ".git",
+            ".gitignore",
+            ".stfolder",
+            ".stignore",
+            ".vscode",
+            "__init.py__",
+            "__pycache__",
+            "backup",
+            "cache",
+            "doc",
+            "logs",
+            "p2p_shared",
+            "profiles",
+            "requirements.txt",
+            "strategies",
+            "test_tools",
+            "venv",
+            "venv_linux"
+        ],
+        "goku": [
+            ".git",
+            ".vscode",
+            "__init.py__",
+            "__pycache__",
+            "data",
+            "doc",
+            "logs",
+            "profiles",
+            "requirements.txt",
+            "strategies",
+            "test_tools",
+            "venv",
+            "venv_linux"
+        ]
+    },
+    "current_ignore_version": "default",
+    "work_path_list": {
+        "SATE_Service": "/home/linus/src/python/projects/SATE_Service",
+        "goku": "/home/linus/src/python/projects/goku",
+        "p2pLite": "/home/linus/src/python/projects/p2pLite",
+        "bio_Algorithm": "/home/linus/src/python/projects/bio_Algorithm",
+        "SimANT": "/home/linus/src/python/projects/SimANT",
+        "SimSLIME": "/home/linus/src/python/projects/SimSLIME",
+        "AI_Prompt_Assistant": "/home/linus/src/python/projects/AI_Prompt_Assistant",
+        "json_tools": "/home/linus/src/python/projects/json_tools",
+        "nightshift_diet": "/home/linus/src/python/projects/nightshift_diet",
+        "service_launcher": "/home/linus/src/python/projects/service_launcher",
+        "gateway_process": "/home/linus/src/python/projects/gateway_process",
+        "tools_console": "/home/linus/src/python/projects/tools_console"
+    },
+    "current_work_path_name": "tools_console",
+    "work_path": "/home/linus/src/python/projects/tools_console",
+    "pdf_margin_threshold": 50,
+    "pdf_export_format": "md"
+}
