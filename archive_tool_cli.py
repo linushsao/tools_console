@@ -1,9 +1,9 @@
 # ==============================================================================
 # archive_tool_cli.py
 #
-# Version: V0.3-050 (Wildcard Ignore Support)
+# Version: V0.4-060-PluginSystem (Plugin System Support)
 # 更新日期: 2026-07-17
-# 描述: 新增 I 指令對 * 萬用字元（如 *.pdf）的篩選支持，並優化忽略過濾邏輯。
+# 描述: 新增外掛系統，支援 plugins/ 目錄自動掃描，新增 RENAME 重命名外掛。
 # ==============================================================================
 
 import os
@@ -24,8 +24,84 @@ try:
 except ImportError:
     PDF_SUPPORT = False
 
-PROGRAM_VERSION = "V0.3-050"
+PROGRAM_VERSION = "V0.4-060-PluginSystem"
 MAX_HEADER_LINES = 15
+
+# ==============================================================================
+# 外掛系統 (Plugin System)
+# ==============================================================================
+import importlib.util
+import traceback
+
+class PluginManager:
+    def __init__(self, script_dir):
+        self.script_dir = script_dir
+        self.plugins_dir = os.path.join(script_dir, "plugins")
+        self.plugins = {}  # cmd -> {module, info}
+        self.ensure_dir()
+        self.scan()
+
+    def ensure_dir(self):
+        if not os.path.exists(self.plugins_dir):
+            os.makedirs(self.plugins_dir)
+            # 建立 __init__.py 讓它可被當成 package
+            init_file = os.path.join(self.plugins_dir, "__init__.py")
+            if not os.path.exists(init_file):
+                open(init_file, 'w').close()
+
+    def scan(self):
+        self.plugins = {}
+        if not os.path.exists(self.plugins_dir):
+            return
+        for fname in os.listdir(self.plugins_dir):
+            if fname.startswith('_'): continue
+            if not fname.endswith('.py'): continue
+            fpath = os.path.join(self.plugins_dir, fname)
+            try:
+                spec = importlib.util.spec_from_file_location(f"plugins.{fname[:-3]}", fpath)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                # 讀取外掛資訊
+                cmd = getattr(mod, '__plugin_command__', None) or getattr(mod, 'PLUGIN_COMMAND', None)
+                name = getattr(mod, '__plugin_name__', None) or fname[:-3]
+                desc = getattr(mod, '__plugin_description__', '') or getattr(mod, 'PLUGIN_DESC', '')
+                usage = getattr(mod, '__plugin_usage__', '') or getattr(mod, 'PLUGIN_USAGE', '')
+                if not cmd:
+                    continue
+                cmd = cmd.upper()
+                self.plugins[cmd] = {
+                    'module': mod,
+                    'name': name,
+                    'cmd': cmd,
+                    'desc': desc,
+                    'usage': usage,
+                    'file': fname
+                }
+            except Exception as e:
+                print(f"[外掛載入失敗] {fname}: {e}")
+                traceback.print_exc()
+
+    def list_plugins(self):
+        return self.plugins
+
+    def run(self, cmd, file_manager, args):
+        cmd = cmd.upper()
+        if cmd not in self.plugins:
+            return False
+        plug = self.plugins[cmd]
+        try:
+            if hasattr(plug['module'], 'run'):
+                plug['module'].run(file_manager, args)
+            elif hasattr(plug['module'], 'main'):
+                plug['module'].main(file_manager, args)
+            else:
+                print(f"外掛 {plug['name']} 沒有 run() 入口")
+        except Exception as e:
+            print(f"[外掛執行錯誤] {plug['name']}: {e}")
+            traceback.print_exc()
+            input("按 Enter 繼續...")
+        return True
+
 
 # ==============================================================================
 # 工具組 (VersionParser, Archiver Core)
@@ -119,6 +195,7 @@ class FileManager:
         self.all_ignore_versions = {"default": sorted(list(self.ignored_items))}
         self.current_ignore_version = "default"
         
+        self.plugin_manager = PluginManager(self.script_dir)
         self.load_config()
         self.scan_directory()
     
@@ -297,7 +374,13 @@ class FileManager:
         
         print(f"{'-'*75}")
         print(f" 選取區分頁: {self.selected_current_page}/{sel_total_pages} (總計: {sel_count})")
-        print(f" 指令: [N/P] 目錄翻頁 | [SN/SP] 選取區翻頁 | [H] 幫助")
+        # --- 顯示已發現的外掛 ---
+        if hasattr(self, 'plugin_manager') and self.plugin_manager.plugins:
+            print(f"{'-'*75}")
+            print(f"  🔌 已載入外掛 ({len(self.plugin_manager.plugins)}):", end=" ")
+            plugs = [f"[{p['cmd']}] {p['name']}" for p in self.plugin_manager.plugins.values()]
+            print(" | ".join(plugs))
+        print(f" 指令: [N/P] 目錄翻頁 | [SN/SP] 選取區翻頁 | [H] 幫助 | [PLUG] 外掛列表")
 
     def show_help(self):
         print(f"\n{'='*20} 指令說明 {'='*20}")
@@ -315,6 +398,13 @@ class FileManager:
         print(" [CONF]         : 切換設定檔 | [RP] 專案管理")
         print(" [VC]           : 更新版本標籤 | [N/P] 換頁 | [E] 退出")
         print(" [A] 打包選取   [UA] 解包JSON   [ZIP] 壓縮選取   [TREE] 專案完整目錄樹")
+        print(" [PLUG]         : 列出所有已載入外掛及使用方式")
+        if hasattr(self, 'plugin_manager') and self.plugin_manager.plugins:
+            print(f"\n{'='*20} 已載入外掛 {'='*20}")
+            for p in self.plugin_manager.plugins.values():
+                print(f" [{p['cmd']}] {p['name']}: {p['desc']}")
+                if p['usage']:
+                    print(f"      用法: {p['usage']}")
         print("-" * 50)
         input("按 Enter 返回...")
 
@@ -699,6 +789,20 @@ def main():
         elif cmd == 'SP':
             fm.selected_current_page = max(1, fm.selected_current_page - 1)        
         elif cmd == 'H': fm.show_help()
+        elif cmd == 'PLUG':
+            fm.plugin_manager.scan()
+            print(f"\n{'='*20} 外掛列表 {'='*20}")
+            if not fm.plugin_manager.plugins:
+                print(" (plugins/ 目錄下沒有發現外掛)")
+            else:
+                for p in fm.plugin_manager.plugins.values():
+                    print(f" [{p['cmd']}] {p['name']} - {p['desc']}")
+                    print(f"      檔案: {p['file']} | 用法: {p['usage']}")
+            input("\n按 Enter 返回...")
+        elif cmd == 'RELOAD_PLUG':
+            fm.plugin_manager.scan()
+            print(f"✅ 已重新掃描，發現 {len(fm.plugin_manager.plugins)} 個外掛")
+            input("按 Enter...")
         elif cmd == '00': fm.current_path = fm.work_path; fm.scan_directory()
         elif cmd == '0': fm.handle_updir()
         elif cmd.isdigit(): fm.handle_click(cmd)
@@ -722,6 +826,13 @@ def main():
                 input("✅ 已清空選取內容。")
             elif arg1.isdigit() and len(inp) > 2 and inp[2].isdigit():
                 fm.handle_range_select(inp[1], inp[2])
+        else:
+            # --- 外掛分派：不需修改主程式，自動呼叫 ---
+            if hasattr(fm, 'plugin_manager') and cmd in fm.plugin_manager.plugins:
+                fm.plugin_manager.run(cmd, fm, inp[1:])
+            else:
+                print(f"❌ 未知指令: {cmd} (輸入 H 查看幫助, PLUG 查看外掛)")
+                input("按 Enter...")
 
 if __name__ == "__main__":
     main()
