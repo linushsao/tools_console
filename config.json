@@ -51,8 +51,8 @@
         "gateway_process": "/home/linus/src/python/projects/gateway_process",
         "tools_console": "/home/linus/src/python/projects/tools_console"
     },
-    "current_work_path_name": "AI_Prompt_Assistant",
-    "work_path": "/home/linus/src/python/projects/AI_Prompt_Assistant",
+    "current_work_path_name": "SimSLIME",
+    "work_path": "/home/linus/src/python/projects/SimSLIME",
     "pdf_margin_threshold": 50,
     "pdf_export_format": "md"
 }

@@ -821,9 +821,34 @@ def main():
             arg1 = inp[1].upper()
             if arg1 == 'ALL':
                 fm.handle_recursive_select()
-            elif arg1 == 'CLR': 
-                fm.selected_items.clear()
-                input("✅ 已清空選取內容。")
+            elif arg1 == 'CLR':
+                # s clr all = 清除所有選取項目
+                if len(inp) > 2 and inp[2].upper() == 'ALL':
+                    count = len(fm.selected_items)
+                    fm.selected_items.clear()
+                    input(f"✅ 已清空所有選取內容 ({count} 項)。")
+                else:
+                    # s clr = 遞迴清除目前位置以及子目錄中被選取者
+                    rel_current = os.path.relpath(fm.current_path, fm.work_path)
+                    if rel_current == '.':
+                        rel_current = ''
+                    
+                    if rel_current == '':
+                        to_remove = set(fm.selected_items)
+                    else:
+                        to_remove = set()
+                        prefix = rel_current + os.sep
+                        for item in fm.selected_items:
+                            if item == rel_current or item.startswith(prefix):
+                                to_remove.add(item)
+                    
+                    if to_remove:
+                        fm.selected_items -= to_remove
+                        display_path = rel_current or '.'
+                        input(f"✅ 已遞迴清除 [{display_path}] 底下的 {len(to_remove)} 項選取。")
+                    else:
+                        display_path = rel_current or '.'
+                        input(f"ℹ️ 在 [{display_path}] 底下沒有已選取的項目。")
             elif arg1.isdigit() and len(inp) > 2 and inp[2].isdigit():
                 fm.handle_range_select(inp[1], inp[2])
         else:
