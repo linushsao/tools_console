@@ -13,19 +13,19 @@ import base64
 import re 
 from datetime import datetime
 import shutil 
-import pyperclip 
 import sys
 import fnmatch  # 引入萬用字元比對庫
-
-# PDF 支援庫檢查
+import atexit
 try:
-    import fitz  # PyMuPDF
-    PDF_SUPPORT = True
+    import readline  # Linux/macOS 內建，支援上下鍵瀏覽指令歷史
 except ImportError:
-    PDF_SUPPORT = False
+    readline = None  # Windows 無 readline，需安裝 pyreadline3 才可使用此功能
+try:
+    import pyperclip  # 用於讀取系統剪貼簿補丁內容
+except ImportError:
+    pyperclip = None
 
 PROGRAM_VERSION = "V0.4-060-PluginSystem"
-MAX_HEADER_LINES = 15
 
 # ==============================================================================
 # 外掛系統 (Plugin System)
@@ -75,11 +75,26 @@ class PluginManager:
                     'cmd': cmd,
                     'desc': desc,
                     'usage': usage,
-                    'file': fname
+                    'file': fname,
+                    'loaded': False
                 }
             except Exception as e:
                 print(f"[外掛載入失敗] {fname}: {e}")
                 traceback.print_exc()
+
+    def notify_loaded(self, file_manager):
+        """呼叫各外掛的 on_load(fm) hook（若有實作），每個外掛僅呼叫一次。
+        外掛應在此自行檢查相依套件是否存在，並將結果記錄於自身狀態中，
+        不應由主程式判斷外掛的相依性。"""
+        for plug in self.plugins.values():
+            if plug['loaded']:
+                continue
+            plug['loaded'] = True
+            if hasattr(plug['module'], 'on_load'):
+                try:
+                    plug['module'].on_load(file_manager)
+                except Exception as e:
+                    print(f"[外掛 on_load 錯誤] {plug['name']}: {e}")
 
     def list_plugins(self):
         return self.plugins
@@ -104,64 +119,8 @@ class PluginManager:
 
 
 # ==============================================================================
-# 工具組 (VersionParser, Archiver Core)
+# 工具組（VC 已改為外掛，見 plugins/version_control.py）
 # ==============================================================================
-
-class VersionParser:
-    VERSION_PATTERN = r'(V\d+\.\d+-\d{3})' 
-    VERSION_REGEX = re.compile(r'#\s*Version:\s*(' + VERSION_PATTERN + r'(.*?))\s*(\((.*?)\))?$')
-
-    def __init__(self, file_path):
-        self.file_path = file_path
-        self.relative_path = ""
-        self.version_full = None
-        self.error = None
-
-    def analyze(self, root_dir):
-        self.relative_path = os.path.relpath(self.file_path, root_dir)
-        try:
-            if not os.path.isfile(self.file_path): return
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                lines = [f.readline() for _ in range(MAX_HEADER_LINES)]
-            for line in lines:
-                if not line: break
-                mv = self.VERSION_REGEX.search(line)
-                if mv:
-                    self.version_full = mv.group(1)
-                    return
-            self.error = "找不到標籤"
-        except Exception as e: self.error = str(e)
-
-    def generate_new_header(self, new_v, new_log):
-        new_date = datetime.now().strftime('%Y-%m-%d')
-        return [f"# Version: {new_v}\n", f"# 更新日期: {new_date}\n", f"# {new_v}: {new_log}\n"]
-
-def archive_selected_files(work_path, selected_items, project_name="Default"):
-    files_data = {}  # 用於存放符合新邏輯的檔案映射
-    file_count = 0
-    for rel_path in sorted(list(selected_items)):
-        full_path = os.path.normpath(os.path.join(work_path, rel_path))
-        if not os.path.isfile(full_path): continue
-        json_key = rel_path.replace(os.path.sep, '/')
-        try:
-            with open(full_path, 'r', encoding='utf-8') as f:
-                files_data[json_key] = f.read()
-        except:
-            with open(full_path, 'rb') as f:
-                files_data[json_key] = base64.b64encode(f.read()).decode('utf-8')
-        file_count += 1
-    
-    # 建立符合規範的全新結構
-    archive_data = {
-        "project_name": project_name,
-        "files": files_data,
-        "__metadata": {  # 保留中介資料供 CLI 工具內部分析，不影響標準規範讀取
-            "original_root_name": os.path.basename(work_path),
-            "archive_timestamp": datetime.now().isoformat(),
-            "file_count": file_count
-        }
-    }
-    return archive_data, file_count
 
 # ==============================================================================
 # 檔案管理員 (FileManager)
@@ -183,10 +142,14 @@ class FileManager:
         
         self.pdf_margin_threshold = 50
         self.pdf_export_format = "md"
+        self.patch_default_level = "-p1"  # 套用補丁時的預設參數（例如 -p1）
         
         self.config_full_path = os.path.join(self.script_dir, "config.json")
         self.conf_dir = os.path.join(self.script_dir, "conf")
         if not os.path.exists(self.conf_dir): os.makedirs(self.conf_dir)
+
+        self.history_file = os.path.join(self.conf_dir, "command_history.txt")
+        self.history_max = 500
         
         self.selected_rows_per_page = 10  # 預設選取區行數
         self.selected_current_page = 1     # 選取區目前頁碼
@@ -197,6 +160,7 @@ class FileManager:
         
         self.plugin_manager = PluginManager(self.script_dir)
         self.load_config()
+        self.plugin_manager.notify_loaded(self)
         self.scan_directory()
     
     def is_ignored(self, rel_path):
@@ -241,6 +205,7 @@ class FileManager:
                     self.work_paths = cfg.get('work_path_list', {})
                     self.pdf_margin_threshold = cfg.get('pdf_margin_threshold', 50)
                     self.pdf_export_format = cfg.get('pdf_export_format', "md")
+                    self.patch_default_level = cfg.get('patch_default_level', "-p1")
                     name = cfg.get('current_work_path_name')
                     if name in self.work_paths:
                         self.current_work_path_name = name
@@ -317,7 +282,8 @@ class FileManager:
             "current_work_path_name": self.current_work_path_name, 
             "work_path": self.work_path,
             "pdf_margin_threshold": self.pdf_margin_threshold,
-            "pdf_export_format": self.pdf_export_format
+            "pdf_export_format": self.pdf_export_format,
+            "patch_default_level": self.patch_default_level
         }
         with open(self.config_full_path, 'w', encoding='utf-8') as f:
             json.dump(cfg, f, indent=4, ensure_ascii=False)
@@ -344,7 +310,7 @@ class FileManager:
         os.system('cls' if os.name == 'nt' else 'clear')
         print(f"{'='*75}\n  工具管理員 {PROGRAM_VERSION} | 專案: [{self.current_work_path_name}]\n{'-'*75}")
         print(f" 路徑: {self.current_path}")
-        print(f" PDF: 門檻={self.pdf_margin_threshold}, 格式={self.pdf_export_format}\n{'-'*75}")
+        print(f"{'-'*75}")
 
         start = (self.current_page - 1) * self.rows_per_page
         for i, item in enumerate(self.file_list[start : start + self.rows_per_page]):
@@ -386,19 +352,14 @@ class FileManager:
         print(f"\n{'='*20} 指令說明 {'='*20}")
         print(" [數字]         : 選取檔案 / 進入目錄")
         print(" [0]            : 回上一層 | [00] 回專案根目錄")
-        print(" [A]            : 打包選取檔案為 JSON (含目錄樹)")
-        print(" [ZIP]          : 壓縮選取檔案為 ZIP 壓縮檔")
-        print(" [UA]           : 解包選取的 JSON 檔案並還原至同目錄結構")
-        print(" [PDF]          : 轉換 PDF (座標過濾去行號)")
+        print(" [PLUG]         : 列出所有已載入外掛及使用方式（A/ZIP/UA/PDF/PCH/PA/VC 已改為外掛，見 PLUG 列表）")
         print(" [I <ptn/n>]    : 忽略指定模式(支援 * 萬用字元)或列表編號")
         print(" [D <數字>]     : 刪除列表中指定編號的檔案/資料夾")
         print(" [S ALL/CLR]    : 遞迴全選所有檔案 / 清空選取")
         print(" [S <始> <終>]  : 選取列表中指定範圍的檔案")
-        print(" [PA <pattern>] : 在已選取檔案中搜尋特定內容")
         print(" [CONF]         : 切換設定檔 | [RP] 專案管理")
-        print(" [VC]           : 更新版本標籤 | [N/P] 換頁 | [E] 退出")
-        print(" [A] 打包選取   [UA] 解包JSON   [ZIP] 壓縮選取   [TREE] 專案完整目錄樹")
-        print(" [PLUG]         : 列出所有已載入外掛及使用方式")
+        print(" [N/P] 換頁 | [E] 退出")
+        print(" [TREE]         : 顯示專案完整目錄樹")
         if hasattr(self, 'plugin_manager') and self.plugin_manager.plugins:
             print(f"\n{'='*20} 已載入外掛 {'='*20}")
             for p in self.plugin_manager.plugins.values():
@@ -472,211 +433,10 @@ class FileManager:
         except Exception as e: print(f"❌ 範圍選取失敗: {e}")
         input("按 Enter 繼續...")
 
-    def handle_pattern_analysis(self, args):
-        if not args: print("❌ 請輸入要搜尋的 Pattern"); input(); return
-        if not self.selected_items: print("❌ 未選取任何檔案"); input(); return
-        
-        pattern = " ".join(args)
-        found_list = []
-        print(f"正在搜尋關鍵字: '{pattern}' ...")
-        
-        for rel in sorted(list(self.selected_items)):
-            full_path = os.path.join(self.work_path, rel)
-            if not os.path.isfile(full_path): continue
-            try:
-                with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                    if pattern in content:
-                        found_list.append(rel)
-            except Exception: pass
-
-        if found_list:
-            print(f"\n{'='*10} 符合條件的檔案 ({len(found_list)}) {'='*10}")
-            for p in found_list: print(f" [MATCH] {p}")
-        else:
-            print(f"❌ 未在選取的檔案中找到關鍵字: '{pattern}'")
-        input("\n按 Enter 繼續...")
-
     def handle_updir(self):
         p = os.path.dirname(self.current_path)
         if p != self.current_path: self.current_path = p; self.current_page = 1; self.scan_directory()
 
-    def handle_pdf_convert(self):
-        if not PDF_SUPPORT: print("❌ 未安裝 PyMuPDF"); input(); return
-        pdf_targets = [os.path.join(self.work_path, p) for p in self.selected_items if p.lower().endswith('.pdf')]
-        if not pdf_targets: print("❌ 未選取 PDF"); input(); return
-        
-        print(f"\n[PDF] 1.開始 2.格式({self.pdf_export_format}) 3.門檻({self.pdf_margin_threshold})")
-        c = input("選擇: ").strip()
-        if c == '2':
-            self.pdf_export_format = "txt" if self.pdf_export_format == "md" else "md"
-            self.save_config(); return self.handle_pdf_convert()
-        elif c == '3':
-            v = input("新門檻: ").strip()
-            if v.isdigit(): self.pdf_margin_threshold = int(v); self.save_config()
-            return self.handle_pdf_convert()
-        elif c != '1': return
-
-        for pdf_path in pdf_targets:
-            out = pdf_path.rsplit('.', 1)[0] + "." + self.pdf_export_format
-            try:
-                doc = fitz.open(pdf_path)
-                res = []
-                for i, page in enumerate(doc):
-                    blocks = page.get_text("blocks")
-                    clean = [b[4].strip() for b in blocks if b[0] > self.pdf_margin_threshold]
-                    if self.pdf_export_format == "md": res.append(f"\n## --- Page {i+1} ---\n")
-                    res.extend(clean)
-                with open(out, "w", encoding="utf-8") as f: f.write("\n".join(res))
-                print(f"✅ 成功: {os.path.basename(out)}")
-            except Exception as e: print(f"❌ 失敗: {os.path.basename(pdf_path)} ({e})")
-        self.scan_directory(); input("按 Enter 繼續...")
-
-    def handle_archive(self):
-        if not self.selected_items: print("❌ 未選取"); input(); return
-        data, count = archive_selected_files(self.work_path, self.selected_items, self.current_work_path_name)
-        tree_str = self.generate_tree_string(self.selected_items)
-        data["__metadata"]["tree_view"] = tree_str
-        name = f"archive_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(os.path.join(self.current_path, name), 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-        print(f"✅ 打包成功!\n{tree_str}"); input("Enter 繼續...")
-
-    def handle_zip(self):
-        import zipfile
-        if not self.selected_items: 
-            print("❌ 未選取任何檔案，無法進行壓縮"); 
-            input(); 
-            return
-        
-        zip_name = f"archive_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-        zip_path = os.path.join(self.current_path, zip_name)
-        
-        print(f"📦 開始將選取的 {len(self.selected_items)} 個項目打包為 ZIP...")
-        try:
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for rel_path in self.selected_items:
-                    full_path = os.path.normpath(os.path.join(self.work_path, rel_path))
-                    if os.path.isfile(full_path):
-                        zipf.write(full_path, rel_path)
-                        print(f"  ➕ 已加入檔案: {rel_path}")
-                    elif os.path.isdir(full_path):
-                        print(f"  📂 正在打包資料夾: {rel_path}")
-                        for root, dirs, files in os.walk(full_path):
-                            for file in files:
-                                f_full = os.path.join(root, file)
-                                f_rel = os.path.relpath(f_full, self.work_path)
-                                zipf.write(f_full, f_rel)
-            
-            tree_str = self.generate_tree_string(self.selected_items)
-            print(f"\n✅ ZIP 壓縮成功!\n產出檔案: {zip_name}\n\n【包含結構】\n{tree_str}")
-        except Exception as e:
-            print(f"❌ ZIP 壓縮失敗: {str(e)}")
-        input("按 Enter 繼續...")
-
-    def handle_unarchive(self):
-        json_targets = [p for p in self.selected_items if p.lower().endswith('.json')]
-        if not json_targets:
-            print("❌ 未選取任何封存 JSON 檔案進行解包。")
-            input("按 Enter 繼續...")
-            return
-
-        print(f"發現 {len(json_targets)} 個選取的 JSON 封存檔，開始解包還原...")
-        for rel_json_path in json_targets:
-            full_json_path = os.path.normpath(os.path.join(self.work_path, rel_json_path))
-            if not os.path.isfile(full_json_path):
-                print(f"⚠️ 找不到實體檔案: {rel_json_path}")
-                continue
-            
-            json_dir = os.path.dirname(full_json_path)
-            print(f"\n正在解包處理: {rel_json_path} -> 還原至目錄: {json_dir}")
-            
-            try:
-                with open(full_json_path, 'r', encoding='utf-8') as f:
-                    archive_data = json.load(f)
-                
-                files_dict = archive_data.get("files", archive_data)
-                
-                if "__metadata" not in archive_data and "files" not in archive_data:
-                    print(f"⚠️ 檔案 {rel_json_path} 不包含合法的封存特徵，跳過。")
-                    continue
-                
-                unpack_count = 0
-                for file_key, content in files_dict.items():
-                    if file_key in ("__metadata", "project_name"):
-                        continue
-                    
-                    local_rel_path = file_key.replace('/', os.path.sep)
-                    
-                    clean_rel_path = local_rel_path
-                    sep_str = os.path.sep
-                    parent_prefix = '..' + sep_str
-                    
-                    while clean_rel_path.startswith(parent_prefix) or clean_rel_path == '..':
-                        if clean_rel_path == '..':
-                            clean_rel_path = ''
-                            break
-                        clean_rel_path = clean_rel_path[len(parent_prefix):]
-                    
-                    clean_rel_path = clean_rel_path.lstrip(sep_str)
-                    
-                    full_dest_path = os.path.normpath(os.path.join(json_dir, clean_rel_path))
-                    
-                    dest_dir = os.path.dirname(full_dest_path)
-                    if dest_dir and not os.path.exists(dest_dir):
-                        os.makedirs(dest_dir, exist_ok=True)
-                    
-                    is_base64 = False
-                    if isinstance(content, str) and not any(c in content for c in " \t\n\r{},;:\"'()[]<>#-_!@$%^&*=|\\~`"):
-                        if len(content) % 4 == 0 and re.match(r'^[A-Za-z0-9+/]*={0,2}$', content):
-                            try:
-                                decoded_bytes = base64.b64decode(content)
-                                ext = os.path.splitext(file_key)[1].lower()
-                                if ext in ['.py', '.json', '.lua', '.md', '.txt', '.html', '.css', '.js', '.yaml', '.yml', '.sh', '.conf', '.mod']:
-                                    is_base64 = False
-                                elif ext in ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz', '.7z', '.rar']:
-                                    is_base64 = True
-                                else:
-                                    if b'\x00' in decoded_bytes or len([b for b in decoded_bytes if b < 32 and b not in (9, 10, 13)]) > len(decoded_bytes) * 0.1:
-                                        is_base64 = True
-                                    else:
-                                        is_base64 = False
-                            except:
-                                is_base64 = False
-                    
-                    if is_base64:
-                        with open(full_dest_path, 'wb') as out_f:
-                            out_f.write(base64.b64decode(content))
-                    else:
-                        with open(full_dest_path, 'w', encoding='utf-8') as out_f:
-                            out_f.write(content)
-                    
-                    print(f"  [DEBUG] 還原檔案: {file_key} -> {full_dest_path}")
-                    unpack_count += 1
-                
-                print(f"✅ 成功還原該包內共 {unpack_count} 個檔案結構。")
-            except Exception as e:
-                print(f"❌ 解包檔案 {rel_json_path} 失敗: {e}")
-                
-        self.scan_directory()
-        input("\n還原完畢，按 Enter 繼續...")
-
-    def generate_tree_string(self, selected_items):
-        tree = {}
-        for path in sorted(selected_items):
-            parts = path.replace(os.path.sep, '/').split('/')
-            curr = tree
-            for p in parts: curr = curr.setdefault(p, {})
-        lines = [f"📦 {self.current_work_path_name}"]
-        def build(node, prefix=""):
-            items = sorted(node.keys())
-            for i, name in enumerate(items):
-                is_l = (i == len(items)-1); conn = "└── " if is_l else "├── "
-                lines.append(f"{prefix}{conn}{name}")
-                if node[name]: build(node[name], prefix + ("    " if is_l else "│   "))
-        build(tree); return "\n".join(lines)
-
-    # --- 修改後的 handle_ignore ---
     def handle_ignore(self, args):
         self.load_config()
         if not args:
@@ -753,19 +513,24 @@ class FileManager:
             self.scan_directory(); input("✅ 已切換設定")
         except: pass
 
-    def handle_vc(self):
-        parsers = []
-        for rel in self.selected_items:
-            p = VersionParser(os.path.join(self.work_path, rel)); p.analyze(self.work_path); parsers.append(p)
-        for p in parsers: print(f" - {p.relative_path}: {p.version_full or p.error}")
-        v = input("新版本號: "); log = input("日誌: ")
-        if v:
-            for p in parsers:
-                if p.error and p.error != "找不到標籤": continue
-                new_h = p.generate_new_header(v, log)
-                with open(p.file_path, 'r', encoding='utf-8') as f: content = f.readlines()
-                with open(p.file_path, 'w', encoding='utf-8') as f: f.writelines(new_h + content)
-            input("✅ 版本更新完成")
+    # --- 指令歷史（上下鍵瀏覽） ---
+    def load_history(self):
+        if not readline:
+            return
+        readline.set_history_length(self.history_max)
+        if os.path.exists(self.history_file):
+            try:
+                readline.read_history_file(self.history_file)
+            except Exception as e:
+                print(f"⚠️ 讀取指令歷史失敗: {e}")
+
+    def save_history(self):
+        if not readline:
+            return
+        try:
+            readline.write_history_file(self.history_file)
+        except Exception as e:
+            print(f"⚠️ 儲存指令歷史失敗: {e}")
 
 # ==============================================================================
 # 主程式
@@ -773,9 +538,19 @@ class FileManager:
 
 def main():
     fm = FileManager()
+    fm.load_history()
+    atexit.register(fm.save_history)
+    if not readline:
+        print("⚠️ 未偵測到 readline，Windows 請安裝 pyreadline3 以啟用上下鍵指令歷史。")
     while True:
         fm.display()
         inp_str = input("\n指令 (H 查看幫助): ").strip()
+        if readline:
+            n = readline.get_current_history_length()
+            if n > 0:
+                dup = n > 1 and readline.get_history_item(n) == readline.get_history_item(n - 1)
+                if not inp_str or dup:
+                    readline.remove_history_item(n - 1)
         if not inp_str: fm.scan_directory(); continue
         inp = inp_str.split()
         cmd = inp[0].upper()
@@ -801,6 +576,7 @@ def main():
             input("\n按 Enter 返回...")
         elif cmd == 'RELOAD_PLUG':
             fm.plugin_manager.scan()
+            fm.plugin_manager.notify_loaded(fm)
             print(f"✅ 已重新掃描，發現 {len(fm.plugin_manager.plugins)} 個外掛")
             input("按 Enter...")
         elif cmd == '00': fm.current_path = fm.work_path; fm.scan_directory()
@@ -808,14 +584,8 @@ def main():
         elif cmd.isdigit(): fm.handle_click(cmd)
         elif cmd == 'I': fm.handle_ignore(inp[1:])
         elif cmd == 'D': fm.handle_delete(inp[1:])
-        elif cmd == 'A': fm.handle_archive()
-        elif cmd == 'UA': fm.handle_unarchive()
-        elif cmd == 'ZIP': fm.handle_zip()
-        elif cmd == 'PDF': fm.handle_pdf_convert()
         elif cmd == 'RP': fm.handle_rp(inp[1].upper() if len(inp)>1 else None)
-        elif cmd == 'VC': fm.handle_vc()
         elif cmd == 'CONF': fm.handle_conf_switch()
-        elif cmd == 'PA': fm.handle_pattern_analysis(inp[1:])
         elif cmd == 'TREE': fm.handle_project_tree()
         elif cmd == 'S' and len(inp)>1:
             arg1 = inp[1].upper()

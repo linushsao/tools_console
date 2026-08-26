@@ -49,10 +49,13 @@
         "nightshift_diet": "/home/linus/src/python/projects/nightshift_diet",
         "service_launcher": "/home/linus/src/python/projects/service_launcher",
         "gateway_process": "/home/linus/src/python/projects/gateway_process",
-        "tools_console": "/home/linus/src/python/projects/tools_console"
+        "tools_console": "/home/linus/src/python/projects/tools_console",
+        "SATIN_TradingTools": "/home/linus/src/python/projects/SATIN_TradingTools",
+        "maze": "/home/linus/src/python/projects/maze"
     },
-    "current_work_path_name": "SimSLIME",
-    "work_path": "/home/linus/src/python/projects/SimSLIME",
+    "current_work_path_name": "tools_console",
+    "work_path": "/home/linus/src/python/projects/tools_console",
     "pdf_margin_threshold": 50,
-    "pdf_export_format": "md"
+    "pdf_export_format": "md",
+    "patch_default_level": "-p1"
 }
