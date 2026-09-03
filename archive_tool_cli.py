@@ -357,6 +357,7 @@ class FileManager:
         print(" [D <數字>]     : 刪除列表中指定編號的檔案/資料夾")
         print(" [S ALL/CLR]    : 遞迴全選所有檔案 / 清空選取")
         print(" [S <始> <終>]  : 選取列表中指定範圍的檔案")
+        print(" [S <萬用字元> [ALL|RECU]] : 依檔名比對選取，預設僅目前頁面；ALL=根目錄遞迴，RECU=目前目錄遞迴 (例: S *.py ALL)")
         print(" [CONF]         : 切換設定檔 | [RP] 專案管理")
         print(" [N/P] 換頁 | [E] 退出")
         print(" [TREE]         : 顯示專案完整目錄樹")
@@ -431,6 +432,37 @@ class FileManager:
                     count += 1
             print(f"✅ 已從當前列表選取 {count} 個檔案。")
         except Exception as e: print(f"❌ 範圍選取失敗: {e}")
+        input("按 Enter 繼續...")
+
+    def handle_wildcard_select(self, pattern, mode=None):
+        count = 0
+        if mode == 'ALL':
+            scope_desc = "專案根目錄遞迴"
+            base_dir = self.work_path
+        elif mode == 'RECU':
+            scope_desc = "目前目錄遞迴"
+            base_dir = self.current_path
+        else:
+            base_dir = None
+
+        if base_dir is not None:
+            for root, dirs, files in os.walk(base_dir):
+                dirs[:] = [d for d in dirs if not self.is_ignored(os.path.relpath(os.path.join(root, d), self.work_path))]
+                for f in files:
+                    if not fnmatch.fnmatch(f, pattern): continue
+                    rel = os.path.relpath(os.path.join(root, f), self.work_path)
+                    if self.is_ignored(rel): continue
+                    self.selected_items.add(rel)
+                    count += 1
+        else:
+            scope_desc = "目前列表頁面"
+            for item in self.file_list:
+                if item['type'] == 'file' and fnmatch.fnmatch(item['name'], pattern):
+                    rel = os.path.relpath(os.path.join(self.current_path, item['name']), self.work_path)
+                    self.selected_items.add(rel)
+                    count += 1
+
+        print(f"✅ 已依萬用字元 '{pattern}' 於「{scope_desc}」選取 {count} 個檔案。")
         input("按 Enter 繼續...")
 
     def handle_updir(self):
@@ -588,7 +620,8 @@ def main():
         elif cmd == 'CONF': fm.handle_conf_switch()
         elif cmd == 'TREE': fm.handle_project_tree()
         elif cmd == 'S' and len(inp)>1:
-            arg1 = inp[1].upper()
+            arg1_raw = inp[1]
+            arg1 = arg1_raw.upper()
             if arg1 == 'ALL':
                 fm.handle_recursive_select()
             elif arg1 == 'CLR':
@@ -621,6 +654,9 @@ def main():
                         input(f"ℹ️ 在 [{display_path}] 底下沒有已選取的項目。")
             elif arg1.isdigit() and len(inp) > 2 and inp[2].isdigit():
                 fm.handle_range_select(inp[1], inp[2])
+            elif '*' in arg1_raw or '?' in arg1_raw:
+                mode = inp[2].upper() if len(inp) > 2 else None
+                fm.handle_wildcard_select(arg1_raw, mode)
         else:
             # --- 外掛分派：不需修改主程式，自動呼叫 ---
             if hasattr(fm, 'plugin_manager') and cmd in fm.plugin_manager.plugins:

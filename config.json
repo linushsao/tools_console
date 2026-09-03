@@ -11,7 +11,6 @@
             "backup",
             "cache",
             "doc",
-            "logs",
             "p2p_shared",
             "profiles",
             "requirements.txt",
@@ -53,8 +52,8 @@
         "SATIN_TradingTools": "/home/linus/src/python/projects/SATIN_TradingTools",
         "maze": "/home/linus/src/python/projects/maze"
     },
-    "current_work_path_name": "tools_console",
-    "work_path": "/home/linus/src/python/projects/tools_console",
+    "current_work_path_name": "SimANT",
+    "work_path": "/home/linus/src/python/projects/SimANT",
     "pdf_margin_threshold": 50,
     "pdf_export_format": "md",
     "patch_default_level": "-p1"
