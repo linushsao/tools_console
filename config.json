@@ -10,7 +10,6 @@
             "__pycache__",
             "backup",
             "cache",
-            "doc",
             "p2p_shared",
             "profiles",
             "requirements.txt",
@@ -50,10 +49,11 @@
         "gateway_process": "/home/linus/src/python/projects/gateway_process",
         "tools_console": "/home/linus/src/python/projects/tools_console",
         "SATIN_TradingTools": "/home/linus/src/python/projects/SATIN_TradingTools",
-        "maze": "/home/linus/src/python/projects/maze"
+        "maze": "/home/linus/src/python/projects/maze",
+        "docu": "/home/linus/src/docu"
     },
-    "current_work_path_name": "SimANT",
-    "work_path": "/home/linus/src/python/projects/SimANT",
+    "current_work_path_name": "docu",
+    "work_path": "/home/linus/src/docu",
     "pdf_margin_threshold": 50,
     "pdf_export_format": "md",
     "patch_default_level": "-p1"
