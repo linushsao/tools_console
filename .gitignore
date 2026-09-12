@@ -1,0 +1,7 @@
+__pycache__
+venv-win
+*.spec
+*.json
+logs/
+*.log
+*.patch

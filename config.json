@@ -10,6 +10,7 @@
             "__pycache__",
             "backup",
             "cache",
+            "logs",
             "p2p_shared",
             "profiles",
             "requirements.txt",
@@ -50,10 +51,11 @@
         "tools_console": "/home/linus/src/python/projects/tools_console",
         "SATIN_TradingTools": "/home/linus/src/python/projects/SATIN_TradingTools",
         "maze": "/home/linus/src/python/projects/maze",
-        "docu": "/home/linus/src/docu"
+        "docu": "/home/linus/src/docu",
+        "ant_nest_tool": "/home/linus/src/python/projects/ant_nest_tool"
     },
-    "current_work_path_name": "docu",
-    "work_path": "/home/linus/src/docu",
+    "current_work_path_name": "tools_console",
+    "work_path": "/home/linus/src/python/projects/tools_console",
     "pdf_margin_threshold": 50,
     "pdf_export_format": "md",
     "patch_default_level": "-p1"

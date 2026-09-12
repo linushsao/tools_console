@@ -143,6 +143,8 @@ class FileManager:
         self.pdf_margin_threshold = 50
         self.pdf_export_format = "md"
         self.patch_default_level = "-p1"  # 套用補丁時的預設參數（例如 -p1）
+        self.pch_history_max = 10        # PCH 執行紀錄保留筆數上限
+        self.pch_auto_delete = True      # PCH 成功套用後是否自動刪除來源 .patch 檔（僅限目錄搜尋來源）
         
         self.config_full_path = os.path.join(self.script_dir, "config.json")
         self.conf_dir = os.path.join(self.script_dir, "conf")
@@ -206,6 +208,8 @@ class FileManager:
                     self.pdf_margin_threshold = cfg.get('pdf_margin_threshold', 50)
                     self.pdf_export_format = cfg.get('pdf_export_format', "md")
                     self.patch_default_level = cfg.get('patch_default_level', "-p1")
+                    self.pch_history_max = cfg.get('pch_history_max', 10)
+                    self.pch_auto_delete = cfg.get('pch_auto_delete', True)
                     name = cfg.get('current_work_path_name')
                     if name in self.work_paths:
                         self.current_work_path_name = name
@@ -283,7 +287,9 @@ class FileManager:
             "work_path": self.work_path,
             "pdf_margin_threshold": self.pdf_margin_threshold,
             "pdf_export_format": self.pdf_export_format,
-            "patch_default_level": self.patch_default_level
+            "patch_default_level": self.patch_default_level,
+            "pch_history_max": self.pch_history_max,
+            "pch_auto_delete": self.pch_auto_delete
         }
         with open(self.config_full_path, 'w', encoding='utf-8') as f:
             json.dump(cfg, f, indent=4, ensure_ascii=False)
