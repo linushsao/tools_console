@@ -12,6 +12,9 @@ import json
 import base64
 import re 
 from datetime import datetime
+
+TREE_EXPORT_PREFIX = "tree_"
+TREE_EXPORT_EXT = ".txt"
 import shutil 
 import sys
 import fnmatch  # 引入萬用字元比對庫
@@ -254,27 +257,82 @@ class FileManager:
                 
         return lines
 
-    def handle_project_tree(self):
-        """TREE 指令：掃描並顯示目前所在目錄的樹狀結構"""
-        target_dir = self.current_path
-        print(f"\n正在掃描目錄: {target_dir} (已自動忽略 -I 設定之項目)...")
-        
-        dir_name = os.path.basename(target_dir) or "Current Dir"
-        tree_lines = [f"📦 {dir_name}"]
-        tree_lines.extend(self.generate_project_tree(target_dir))
-        
+    def generate_tree_from_selected(self):
+        """依 selected_items 相對路徑組成的樹狀圖（不掃描實體目錄）"""
+        dir_name = self.current_work_path_name or os.path.basename(self.work_path) or "Selected"
+        tree_lines = [f"📦 {dir_name} (僅選取檔案)"]
+        items = sorted(list(self.selected_items))
+        total = len(items)
+        for i, rel_path in enumerate(items):
+            is_last = (i == total - 1)
+            connector = "└── " if is_last else "├── "
+            tree_lines.append(f"{connector}{rel_path.replace(os.path.sep, '/')}")
+        return tree_lines
+
+    def handle_project_tree(self, args=None):
+        """TREE 指令：掃描並顯示目錄樹狀結構，支援 purge 參數"""
+        args = args or []
+        purge = any(a.strip().lower() == 'purge' for a in args)
+
+        if purge:
+            try:
+                old_trees = [
+                    fn for fn in os.listdir(self.current_path)
+                    if fn.startswith(TREE_EXPORT_PREFIX) and fn.endswith(TREE_EXPORT_EXT)
+                    and os.path.isfile(os.path.join(self.current_path, fn))
+                ]
+            except Exception as e:
+                print(f"⚠️ 搜尋舊目錄樹檔失敗: {e}")
+                old_trees = []
+
+            if old_trees:
+                print(f"🗑️ purge: 偵測到 {len(old_trees)} 個舊目錄樹檔，刪除中...")
+                for fn in old_trees:
+                    try:
+                        os.remove(os.path.join(self.current_path, fn))
+                        print(f"   - 已刪除: {fn}")
+                    except Exception as e:
+                        print(f"   - 刪除失敗: {fn} ({e})")
+            else:
+                print("ℹ️ purge: 目前目錄未找到舊目錄樹檔。")
+
+        scope_selected = False
+        if self.selected_items:
+            ans = input(f"目前有 {len(self.selected_items)} 個已選取檔案，是否僅針對選取檔案產生目錄樹？(y/N): ").strip().lower()
+            scope_selected = ans in ('y', 'yes')
+
+        if scope_selected:
+            tree_lines = self.generate_tree_from_selected()
+        else:
+            target_dir = self.current_path
+            print(f"\n正在掃描目錄: {target_dir} (已自動忽略 -I 設定之項目)...")
+            dir_name = os.path.basename(target_dir) or "Current Dir"
+            tree_lines = [f"📦 {dir_name}"]
+            tree_lines.extend(self.generate_project_tree(target_dir))
+
         full_tree_str = "\n".join(tree_lines)
-        
+
         print("\n" + "="*40)
         print(full_tree_str)
         print("="*40)
-        
+
         try:
             pyperclip.copy(full_tree_str)
             print("📋 [提示] 目錄樹已自動複製到您的剪貼簿！")
         except:
             pass
-            
+
+        ans2 = input("是否另存新檔？(y/N): ").strip().lower()
+        if ans2 in ('y', 'yes'):
+            name = f"{TREE_EXPORT_PREFIX}{datetime.now().strftime('%Y%m%d_%H%M%S')}{TREE_EXPORT_EXT}"
+            save_path = os.path.join(self.current_path, name)
+            try:
+                with open(save_path, 'w', encoding='utf-8') as f:
+                    f.write(full_tree_str)
+                print(f"✅ 已另存新檔: {name}")
+            except Exception as e:
+                print(f"⚠️ 儲存失敗: {e}")
+
         input("\n按 Enter 繼續...")
 
     def save_config(self):
@@ -624,7 +682,7 @@ def main():
         elif cmd == 'D': fm.handle_delete(inp[1:])
         elif cmd == 'RP': fm.handle_rp(inp[1].upper() if len(inp)>1 else None)
         elif cmd == 'CONF': fm.handle_conf_switch()
-        elif cmd == 'TREE': fm.handle_project_tree()
+        elif cmd == 'TREE': fm.handle_project_tree(inp[1:])
         elif cmd == 'S' and len(inp)>1:
             arg1_raw = inp[1]
             arg1 = arg1_raw.upper()

@@ -11,7 +11,10 @@ from plugins._archive_common import archive_selected_files, generate_tree_string
 __plugin_command__ = "A"
 __plugin_name__ = "打包為 JSON"
 __plugin_description__ = "打包選取檔案為 JSON (含目錄樹)"
-__plugin_usage__ = "A  -> 將目前選取的檔案打包成單一 JSON 封存檔"
+__plugin_usage__ = "A [purge]  -> 打包成 JSON；加 purge 會先刪除目前目錄下舊的 archive_*.json 打包檔"
+
+ARCHIVE_PREFIX = "archive_"
+ARCHIVE_EXT = ".json"
 
 
 def run(fm, args):
@@ -19,6 +22,30 @@ def run(fm, args):
         print("❌ 未選取")
         input()
         return
+
+    purge = any(a.strip().lower() == 'purge' for a in (args or []))
+
+    if purge:
+        try:
+            old_archives = [
+                fn for fn in os.listdir(fm.current_path)
+                if fn.startswith(ARCHIVE_PREFIX) and fn.endswith(ARCHIVE_EXT)
+                and os.path.isfile(os.path.join(fm.current_path, fn))
+            ]
+        except Exception as e:
+            print(f"⚠️ 搜尋舊打包檔失敗: {e}")
+            old_archives = []
+
+        if old_archives:
+            print(f"🗑️ purge: 偵測到 {len(old_archives)} 個舊打包檔，刪除中...")
+            for fn in old_archives:
+                try:
+                    os.remove(os.path.join(fm.current_path, fn))
+                    print(f"   - 已刪除: {fn}")
+                except Exception as e:
+                    print(f"   - 刪除失敗: {fn} ({e})")
+        else:
+            print("ℹ️ purge: 目前目錄未找到舊打包檔。")
 
     ans = input("是否採用 MetaAI式扁平化（僅保留「上層資料夾/檔名」，砍掉更上層路徑）？(y/N): ").strip().lower()
     flatten = ans in ('y', 'yes')
@@ -55,7 +82,7 @@ def run(fm, args):
         tree_str = generate_tree_string(fm, fm.selected_items)
 
     data["__metadata"]["tree_view"] = tree_str
-    name = f"archive_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    name = f"{ARCHIVE_PREFIX}{datetime.now().strftime('%Y%m%d_%H%M%S')}{ARCHIVE_EXT}"
     with open(os.path.join(fm.current_path, name), 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
     print(f"✅ 打包成功!\n{tree_str}")

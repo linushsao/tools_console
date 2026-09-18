@@ -1,0 +1,173 @@
+rp s
+4
+pch
+1
+s all
+1
+s clr
+0
+2
+s clr
+0
+3
+s clr
+0
+a
+1
+d 4
+y
+1
+s all
+2
+00
+a
+pch
+n
+p
+d 14
+s all
+3
+1
+0
+00
+a
+pch
+s clr
+s clr all
+pch
+s clr all
+s all
+1
+0
+a
+q
+h
+s
+h
+0
+10
+0
+n
+conf
+0
+1
+5
+1
+0
+1
+s all
+0
+s clr all
+4
+s clr all
+rp s
+15
+4
+5
+1
+0
+3
+s all
+1
+2
+0
+2
+0
+a
+pch
+e
+0
+1
+6
+0
+4
+1
+s all
+s clr all
+pch
+s clr
+0
+conf
+0
+1
+6
+0
+4
+1
+d 5
+y
+a
+s all
+pch
+e
+d 5
+rp s
+7
+4
+1
+s all
+a
+rp s
+pch
+e
+pch history
+pch
+pch history
+pch
+s *.py all
+hash
+pch
+s clr all
+s *.py all
+hash
+s clr all
+n
+19
+s clr all
+s kernel* all
+s nurse_behavior* all
+pch
+s clr
+s *.py all
+tree_export
+tree
+pch
+pch history
+s clr all
+s nest_manager* all
+s basic_hexagon_nest* all
+s granary_depot* all
+a
+pch
+s clr all
+s *.py all
+tree
+hash
+s clr all
+s main_window* all
+s canvas* all
+s pheromone_manager* all
+a purge
+s clr all
+rp s
+e
+rp s
+rp
+pch
+rp s
+2
+s layer_view_dialog* all
+pch
+1
+pch
+1
+pch
+s clr all
+s ant_role_probe* all
+a purge
+rp s
+7
+pch
+rp s
+2
+pch
