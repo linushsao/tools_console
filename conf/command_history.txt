@@ -171,3 +171,12 @@ pch
 rp s
 2
 pch
+s shared* all
+s black_ant* all
+s ant_manager* all
+s job_transition_manager* all
+s nurse_behavior* all
+11
+a purge
+s clr all
+pch

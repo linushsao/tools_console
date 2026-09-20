@@ -1,0 +1,52 @@
+[
+    {
+        "time": "2026-09-19 22:28:21",
+        "result": "成功",
+        "path": "step18_lookup_plugin.patch"
+    },
+    {
+        "time": "2026-09-20 01:50:58",
+        "result": "成功",
+        "path": "scent2_A_berry_plugin.patch"
+    },
+    {
+        "time": "2026-09-20 01:50:58",
+        "result": "成功",
+        "path": "scent2_B_ant_manager.patch"
+    },
+    {
+        "time": "2026-09-20 01:50:58",
+        "result": "成功",
+        "path": "scent2_C_caterpillar_plugin.patch"
+    },
+    {
+        "time": "2026-09-20 05:42:13",
+        "result": "成功",
+        "path": "nurse_C_job_transition_manager.patch"
+    },
+    {
+        "time": "2026-09-20 06:17:15",
+        "result": "成功",
+        "path": "retinue_D_retinue_behavior.patch"
+    },
+    {
+        "time": "2026-09-20 06:17:15",
+        "result": "成功",
+        "path": "retinue_E_config.patch"
+    },
+    {
+        "time": "2026-09-20 16:56:38",
+        "result": "成功",
+        "path": "role_F_ant_manager.patch"
+    },
+    {
+        "time": "2026-09-20 17:17:29",
+        "result": "成功",
+        "path": "escape_G_job_transition_manager.patch"
+    },
+    {
+        "time": "2026-09-20 20:54:36",
+        "result": "成功",
+        "path": "step19_d_selected.patch"
+    }
+]

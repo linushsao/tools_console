@@ -449,7 +449,13 @@ class FileManager:
         except: pass
 
     def handle_delete(self, args):
-        if not args: print("❌ 請指定編號"); input(); return
+        if not args:
+            if not self.selected_items:
+                print("❌ 未選取任何檔案，且未指定編號")
+                input("按 Enter 繼續...")
+                return
+            self.handle_delete_selected()
+            return
         try:
             idx = int(args[0]) - 1
             item = self.file_list[idx]
@@ -463,6 +469,40 @@ class FileManager:
                 print(f"✅ 已刪除: {item['name']}")
                 self.scan_directory()
         except Exception as e: print(f"❌ 刪除失敗: {e}")
+        input("按 Enter 繼續...")
+
+    def handle_delete_selected(self):
+        """依目前 S 選取的內容執行刪除（無指定編號時的 D 指令行為）"""
+        items = sorted(list(self.selected_items))
+        print(f"\n目前已選取 {len(items)} 個項目:")
+        for rel in items:
+            print(f"  - {rel}")
+        confirm = input(f"⚠️ 確定要刪除以上 {len(items)} 個已選取項目? (y/N): ").strip().lower()
+        if confirm != 'y':
+            print("已取消刪除。")
+            input("按 Enter 繼續...")
+            return
+
+        success, failed = 0, []
+        for rel in items:
+            full_path = os.path.normpath(os.path.join(self.work_path, rel))
+            try:
+                if os.path.isdir(full_path):
+                    shutil.rmtree(full_path)
+                elif os.path.isfile(full_path):
+                    os.remove(full_path)
+                else:
+                    failed.append((rel, "路徑不存在"))
+                    continue
+                success += 1
+                self.selected_items.discard(rel)
+            except Exception as e:
+                failed.append((rel, str(e)))
+
+        print(f"✅ 完成，成功刪除 {success} 項，失敗 {len(failed)} 項")
+        for rel, err in failed:
+            print(f"  - 刪除失敗: {rel} ({err})")
+        self.scan_directory()
         input("按 Enter 繼續...")
 
     def handle_recursive_select(self):
