@@ -1,26 +1,9 @@
---- a/main_window.py
-+++ b/main_window.py
-@@ -89,6 +89,10 @@
-         super().__init__()
-         self.kernel = kernel
-+        # 💡【新增】：讓kernel持有主視窗參照——供即點即用型偵錯外掛（例如工具箱）
-+        # 在只拿得到kernel的on_enable(kernel)介面裡，也能反查main_window設定
-+        # current_tool/游標，不用改動debug_manager或ProbeClass既有介面契約。
-+        self.kernel.main_window_ref = self
-         self.resize(800, 600)
-@@ -951,6 +955,9 @@
--        elif self.current_tool == "PROPERTIES":
-+        elif self.current_tool in ("TOOLBOX_ERASER", "TOOLBOX_SPRAYER"):
-+            self._toolbox_apply_pheromone_tool(x, y)
-+            return True
-+        elif self.current_tool == "PROPERTIES":
-@@ -1333,7 +1340,8 @@
--        if self.current_tool in ["MOVE_SELECT", "MOVE_PLACE", "DELETE", "PROPERTIES"]:
-+        if self.current_tool in ["MOVE_SELECT", "MOVE_PLACE", "DELETE", "PROPERTIES",
-+                                   "TOOLBOX_ERASER", "TOOLBOX_SPRAYER"]:
-             if self.execute_tool_logic_at(x, y):
-                 return
-@@ -969,0 +975,60 @@
-+    def _toolbox_apply_pheromone_tool(self, x, y):
-+        """💡【新增】：工具箱外掛（橡皮／噴槍）點擊處理...（完整內容見下方新增方法）"""
-+        ...（實際套用邏輯，見下方完整版）
+--- a/client_gui/plugins/pages/trading_log_analystic/engine.py
++++ b/client_gui/plugins/pages/trading_log_analystic/engine.py
+@@ -148,7 +148,7 @@ class LogAnalysticEngine:
+             # 方案 C：逐棒累加損益
+             bar_pnls = []
+-            for t in range(eidx, xidx):
++            for t in range(eidx + 1, xidx):
+                 prev_close = close_arr[t - 1] if t > 0 else close_arr[t]
+                 bar_pnls.append((close_arr[t] - prev_close) * direction)

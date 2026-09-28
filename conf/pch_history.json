@@ -1,52 +1,62 @@
 [
     {
-        "time": "2026-09-19 22:28:21",
-        "result": "成功",
-        "path": "step18_lookup_plugin.patch"
+        "time": "2026-09-26 04:35:47",
+        "result": "失敗",
+        "path": "layout_import_fix.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 01:50:58",
+        "time": "2026-09-26 04:38:28",
         "result": "成功",
-        "path": "scent2_A_berry_plugin.patch"
+        "path": "layout_import_fix2.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 01:50:58",
-        "result": "成功",
-        "path": "scent2_B_ant_manager.patch"
+        "time": "2026-09-26 05:56:58",
+        "result": "失敗",
+        "path": "../tools_console/conf/clipboard_patch.tmp",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 01:50:58",
-        "result": "成功",
-        "path": "scent2_C_caterpillar_plugin.patch"
+        "time": "2026-09-26 05:58:14",
+        "result": "失敗",
+        "path": "fix_pyside_log_extractor_types.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 05:42:13",
+        "time": "2026-09-26 06:05:04",
         "result": "成功",
-        "path": "nurse_C_job_transition_manager.patch"
+        "path": "fix_pyside_log_extractor_types.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 06:17:15",
+        "time": "2026-09-26 06:11:55",
         "result": "成功",
-        "path": "retinue_D_retinue_behavior.patch"
+        "path": "fix_dark_theme_dialogs.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 06:17:15",
+        "time": "2026-09-27 20:18:50",
         "result": "成功",
-        "path": "retinue_E_config.patch"
+        "path": "09_main_window_tiling_fix.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 16:56:38",
+        "time": "2026-09-27 20:28:44",
         "result": "成功",
-        "path": "role_F_ant_manager.patch"
+        "path": "10_middle_panel_scrolled_wrap.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 17:17:29",
+        "time": "2026-09-27 20:28:44",
         "result": "成功",
-        "path": "escape_G_job_transition_manager.patch"
+        "path": "11_main_window_shrink_revert.patch",
+        "level": "-p1"
     },
     {
-        "time": "2026-09-20 20:54:36",
+        "time": "2026-09-28 00:32:39",
         "result": "成功",
-        "path": "step19_d_selected.patch"
+        "path": "../tools_console/conf/clipboard_patch.tmp",
+        "level": "-p1"
     }
 ]

@@ -42,7 +42,11 @@
         "json_tools": "/home/linus/src/python/projects/json_tools",
         "service_launcher": "/home/linus/src/python/projects/service_launcher",
         "gateway_process": "/home/linus/src/python/projects/gateway_process",
-        "tools_console": "/home/linus/src/python/projects/tools_console"
+        "tools_console": "/home/linus/src/python/projects/tools_console",
+        "SATIN_TradingTools": "/home/linus/src/python/projects/SATIN_TradingTools",
+        "example": "/home/linus/Downloads/example",
+        "futures_tool": "/home/linus/src/python/projects/futures_tool",
+        "pyside_log_extractor": "/home/linus/src/python/projects/pyside_log_extractor"
     },
     "current_work_path_name": "tools_console",
     "work_path": "/home/linus/src/python/projects/tools_console",

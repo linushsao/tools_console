@@ -6,6 +6,7 @@
 
 import os
 import json
+import shlex
 import subprocess
 from datetime import datetime
 
@@ -44,12 +45,13 @@ def _load_history(fm):
     return []
 
 
-def _add_history_entry(fm, success, rel_path):
+def _add_history_entry(fm, success, rel_path, level=""):
     history = _load_history(fm)
     history.append({
         "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         "result": "成功" if success else "失敗",
-        "path": rel_path
+        "path": rel_path,
+        "level": level
     })
     max_len = getattr(fm, 'pch_history_max', 10)
     if max_len > 0:
@@ -68,10 +70,10 @@ def _show_history(fm):
     if not history:
         print("(尚無任何執行紀錄)")
     else:
-        print(f"{'時間':<20} {'結果':<6} 補丁路徑")
+        print(f"{'時間':<20} {'結果':<6} {'參數':<6} 補丁路徑")
         print("-" * 75)
         for entry in reversed(history):
-            print(f"{entry.get('time',''):<20} {entry.get('result',''):<6} {entry.get('path','')}")
+            print(f"{entry.get('time',''):<20} {entry.get('result',''):<6} {entry.get('level','-'):<6} {entry.get('path','')}")
     input("\n按 Enter 返回...")
 
 
@@ -171,11 +173,12 @@ def run(fm, args):
     print(f"{'-'*75}")
 
     for patch_file in selected_patches:
-        print(f"\n📄 套用補丁: {os.path.basename(patch_file)}")
+        print(f"\n📄 套用補丁: {os.path.basename(patch_file)} (使用參數: {fm.patch_default_level})")
         success = False
         try:
+            level_args = shlex.split(fm.patch_default_level)
             result = subprocess.run(
-                ["patch", fm.patch_default_level, "-i", patch_file],
+                ["patch"] + level_args + ["-i", patch_file],
                 cwd=fm.work_path,
                 capture_output=True,
                 text=True
@@ -192,13 +195,13 @@ def run(fm, args):
         except FileNotFoundError:
             print("❌ 找不到系統的 'patch' 指令，請確認已安裝 patch 工具並存在於 PATH 中。")
             rel_path = os.path.relpath(patch_file, fm.work_path).replace(os.path.sep, '/')
-            _add_history_entry(fm, False, rel_path)
+            _add_history_entry(fm, False, rel_path, fm.patch_default_level)
             break
         except Exception as e:
             print(f"❌ 執行時發生例外: {e}")
 
         rel_path = os.path.relpath(patch_file, fm.work_path).replace(os.path.sep, '/')
-        _add_history_entry(fm, success, rel_path)
+        _add_history_entry(fm, success, rel_path, fm.patch_default_level)
 
         if getattr(fm, 'pch_auto_delete', True) and patch_file in search_sourced:
             try:
