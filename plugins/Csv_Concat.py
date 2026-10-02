@@ -2,8 +2,9 @@
 # plugins/csv_concat.py
 # 外掛：文字檔接合 (CSV/文字檔)
 # Version: V1.0-001
-# 更新日期: 2026-09-29
+# 更新日期: 2026-09-30
 # 描述: 接合多個文字檔/CSV，檢查欄位數、支援排序、選擇性刪除表頭
+# 儲存位置: 專案根目錄 (work_path)
 # ==============================================================================
 import os
 import csv
@@ -281,19 +282,19 @@ def run(fm, args):
     print(f"設定: {'是，從第2檔起刪除首行' if skip_header else '否，全部保留'}")
 
     # 5. 目標檔名
-    print(f"\n--- 步驟 4: 執行接合 ---")
+    print(f"\n--- 步驟 4: 執行接合 (儲存至專案根目錄) ---")
     default_name = f"concat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     # 如果第一個檔案是 .txt 則預設 .txt
     if ordered[0]['rel'].lower().endswith('.txt'):
         default_name = default_name.replace('.csv', '.txt')
 
-    target_input = input(f"請輸入目標檔名 (預設 {default_name}，儲存在目前位置): ").strip()
+    target_input = input(f"請輸入目標檔名 (預設 {default_name}，儲存至專案根目錄): ").strip()
     if not target_input:
         target_input = default_name
     
-    # 確保檔名合法，不允許路徑跳脫，強制存在目前位置
+    # 確保檔名合法，不允許路徑跳脫，強制儲存至專案根目錄 work_path (需求變更)
     target_filename = os.path.basename(target_input)
-    target_path = os.path.join(fm.current_path, target_filename)
+    target_path = os.path.join(fm.work_path, target_filename)
 
     if os.path.exists(target_path):
         ow = input(f"⚠️ 檔案 {target_filename} 已存在，是否覆蓋？ (y/N): ").strip().lower()
